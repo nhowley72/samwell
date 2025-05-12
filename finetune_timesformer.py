@@ -21,10 +21,10 @@ torch.manual_seed(42)
 DATASET_PATH = "badminton_dataset"
 MODEL_NAME = "facebook/timesformer-base-finetuned-k400"
 OUTPUT_DIR = "finetuned_timesformer_middle50"  # New output directory to preserve the old model
-NUM_FRAMES = 8  # Increased from 4 to 8 frames
+NUM_FRAMES = 2  # Increased from 4 to 8 frames
 BATCH_SIZE = 1  # Keep batch size at 1 to avoid memory issues
 LEARNING_RATE = 5e-5
-NUM_EPOCHS = 3  # Keep at 3 epochs
+NUM_EPOCHS = 1  # Keep at 3 epochs
 USE_MIDDLE_50_PERCENT = True  # Only use middle 50% of frames
 
 # Get class labels from directory names

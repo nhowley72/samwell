@@ -10,13 +10,13 @@ import seaborn as sns
 import random
 
 # Path to the fine-tuned model (updated model)
-MODEL_PATH = "finetuned_timesformer_middle50/final_model"
+MODEL_PATH = "finetuned_timesformer/final_model"
 NUM_FRAMES = 8  # Updated to 8 frames
 USE_MIDDLE_50_PERCENT = True  # Only use middle 50% of frames
 
 # Video playback settings
-OUTPUT_VIDEO_PATH = "combined_stream_with_predictions.mp4"
-FRAME_RATE = 30
+OUTPUT_VIDEO_PATH = "combined_stream_10_videos_slow.mp4"  # Changed filename to indicate it's slower
+FRAME_RATE = 10  # Reduced from 30 to 10 fps for slower playback
 DISPLAY_SCALE = 1.0  # Scale factor for display window
 
 # Load the processor and model
@@ -41,7 +41,8 @@ def collect_all_videos():
                 video_path = os.path.join(class_dir, filename)
                 videos_with_labels.append((video_path, class_name))
     
-    return videos_with_labels
+    # Limit to 10 videos
+    return videos_with_labels[:10]
 
 def process_frame_for_prediction(frame, frames_buffer, current_frame_index, total_frames, start_frame, end_frame):
     """Process a frame for prediction and add it to the buffer if needed"""
@@ -203,7 +204,7 @@ def create_combined_video_stream(videos_with_labels, output_path, display=True):
                    (width//2 - 150, height//2 + 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         
         # Display title frame for 2 seconds
-        for _ in range(int(FRAME_RATE * 2)):
+        for _ in range(int(FRAME_RATE * 4)):  # Increased from 2 to 4 seconds
             out.write(title_frame)
             if display:
                 cv2.imshow("Badminton Shot Classification Stream", title_frame)
@@ -268,7 +269,7 @@ def create_combined_video_stream(videos_with_labels, output_path, display=True):
         
         # Add a black frame transition
         transition_frame = np.zeros((height, width, 3), dtype=np.uint8)
-        for _ in range(int(FRAME_RATE * 0.5)):  # Half-second transition
+        for _ in range(int(FRAME_RATE * 2)):  # Increased from 0.5 to 2 seconds
             out.write(transition_frame)
             if display:
                 cv2.imshow("Badminton Shot Classification Stream", transition_frame)
@@ -339,8 +340,8 @@ def create_evaluation_summary(evaluation, video_writer, width, height, display=T
                    (width//2 - 200, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         y_pos += 40
     
-    # Display for 5 seconds
-    for _ in range(int(FRAME_RATE * 5)):
+    # Display for 10 seconds
+    for _ in range(int(FRAME_RATE * 10)):  # Increased from 5 to 10 seconds
         video_writer.write(summary_frame)
         if display:
             cv2.imshow("Badminton Shot Classification Stream", summary_frame)
@@ -371,8 +372,8 @@ def create_evaluation_summary(evaluation, video_writer, width, height, display=T
     cv2.putText(cm_img, "CONFUSION MATRIX", 
                (width//2 - 150, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
     
-    # Display for 5 seconds
-    for _ in range(int(FRAME_RATE * 5)):
+    # Display for 10 seconds
+    for _ in range(int(FRAME_RATE * 10)):  # Increased from 5 to 10 seconds
         video_writer.write(cm_img)
         if display:
             cv2.imshow("Badminton Shot Classification Stream", cm_img)
