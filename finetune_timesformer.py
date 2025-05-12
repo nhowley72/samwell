@@ -20,11 +20,12 @@ torch.manual_seed(42)
 # Define paths and parameters
 DATASET_PATH = "badminton_dataset"
 MODEL_NAME = "facebook/timesformer-base-finetuned-k400"
-OUTPUT_DIR = "finetuned_timesformer"
-NUM_FRAMES = 4  # Reduced from 8 to 4 frames
-BATCH_SIZE = 1  # Reduced from 4 to 1
+OUTPUT_DIR = "finetuned_timesformer_middle50"  # New output directory to preserve the old model
+NUM_FRAMES = 8  # Increased from 4 to 8 frames
+BATCH_SIZE = 1  # Keep batch size at 1 to avoid memory issues
 LEARNING_RATE = 5e-5
-NUM_EPOCHS = 3  # Reduced from 5 to 3
+NUM_EPOCHS = 3  # Keep at 3 epochs
+USE_MIDDLE_50_PERCENT = True  # Only use middle 50% of frames
 
 # Get class labels from directory names
 class_labels = [d for d in os.listdir(DATASET_PATH) if os.path.isdir(os.path.join(DATASET_PATH, d)) and not d.startswith('.')]
@@ -60,13 +61,31 @@ class BadmintonVideoDataset(Dataset):
             
             if frame_count <= 0:
                 raise ValueError(f"Video has no frames: {video_path}")
+            
+            # Calculate frame range for middle 50%
+            if USE_MIDDLE_50_PERCENT:
+                start_frame = int(frame_count * 0.25)
+                end_frame = int(frame_count * 0.75)
+                effective_frame_count = end_frame - start_frame
+            else:
+                start_frame = 0
+                end_frame = frame_count
+                effective_frame_count = frame_count
                 
             # Sample frames uniformly
-            if frame_count >= NUM_FRAMES:
-                indices = np.linspace(0, frame_count - 1, NUM_FRAMES, dtype=int)
+            if effective_frame_count >= NUM_FRAMES:
+                if USE_MIDDLE_50_PERCENT:
+                    # Sample from the middle 50% of the video
+                    indices = np.linspace(start_frame, end_frame - 1, NUM_FRAMES, dtype=int)
+                else:
+                    # Sample from the entire video
+                    indices = np.linspace(0, frame_count - 1, NUM_FRAMES, dtype=int)
             else:
                 # If video is shorter, loop frames
-                indices = np.arange(frame_count).repeat(NUM_FRAMES // frame_count + 1)[:NUM_FRAMES]
+                if USE_MIDDLE_50_PERCENT:
+                    indices = np.arange(start_frame, end_frame).repeat(NUM_FRAMES // effective_frame_count + 1)[:NUM_FRAMES]
+                else:
+                    indices = np.arange(frame_count).repeat(NUM_FRAMES // frame_count + 1)[:NUM_FRAMES]
             
             # Read selected frames
             for frame_idx in indices:
@@ -146,6 +165,11 @@ def main():
     # Free up memory before starting
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+    
+    # Print training configuration
+    print(f"Training with NUM_FRAMES={NUM_FRAMES}, BATCH_SIZE={BATCH_SIZE}")
+    if USE_MIDDLE_50_PERCENT:
+        print("Using only the middle 50% of frames from each video")
     
     # Collect video paths and labels
     video_paths, labels = collect_videos()

@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 from transformers import AutoImageProcessor, AutoModelForVideoClassification
 from matplotlib.animation import FuncAnimation
 
-# Path to the fine-tuned model
-MODEL_PATH = "finetuned_timesformer/final_model"
-NUM_FRAMES = 4  # Same as training
+# Path to the fine-tuned model (updated model)
+MODEL_PATH = "finetuned_timesformer_middle50/final_model"
+NUM_FRAMES = 8  # Updated to 8 frames
+USE_MIDDLE_50_PERCENT = True  # Only use middle 50% of frames
 
 # Load the processor and model
 processor = AutoImageProcessor.from_pretrained(MODEL_PATH)
@@ -19,14 +20,13 @@ DATASET_PATH = "badminton_dataset"
 class_labels = [d for d in os.listdir(DATASET_PATH) if os.path.isdir(os.path.join(DATASET_PATH, d)) and not d.startswith('.')]
 id_to_label = {i: label for i, label in enumerate(class_labels)}
 
-def predict_video(video_path, visualize=False, middle_only=True):
+def predict_video(video_path, visualize=False):
     """
-    Predict the class of a badminton video
+    Predict the class of a badminton video using the middle 50% of frames
     
     Args:
         video_path: Path to the video file
         visualize: Whether to read all frames for visualization
-        middle_only: If True, only use the middle 50% of frames for prediction
     """
     # Load video using OpenCV
     cap = cv2.VideoCapture(video_path)
@@ -41,7 +41,7 @@ def predict_video(video_path, visualize=False, middle_only=True):
         return None
     
     # Calculate frame range for middle 50%
-    if middle_only:
+    if USE_MIDDLE_50_PERCENT:
         start_frame = int(frame_count * 0.25)
         end_frame = int(frame_count * 0.75)
         effective_frame_count = end_frame - start_frame
@@ -53,7 +53,7 @@ def predict_video(video_path, visualize=False, middle_only=True):
     
     # Sample frames uniformly for prediction
     if effective_frame_count >= NUM_FRAMES:
-        if middle_only:
+        if USE_MIDDLE_50_PERCENT:
             # Sample from the middle 50% of the video
             indices = np.linspace(start_frame, end_frame - 1, NUM_FRAMES, dtype=int)
         else:
@@ -61,7 +61,7 @@ def predict_video(video_path, visualize=False, middle_only=True):
             indices = np.linspace(0, frame_count - 1, NUM_FRAMES, dtype=int)
     else:
         # If video is shorter, loop frames
-        if middle_only:
+        if USE_MIDDLE_50_PERCENT:
             indices = np.arange(start_frame, end_frame).repeat(NUM_FRAMES // effective_frame_count + 1)[:NUM_FRAMES]
         else:
             indices = np.arange(frame_count).repeat(NUM_FRAMES // frame_count + 1)[:NUM_FRAMES]
@@ -75,7 +75,7 @@ def predict_video(video_path, visualize=False, middle_only=True):
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 
                 # Mark frames used for prediction
-                if middle_only and start_frame <= i < end_frame:
+                if USE_MIDDLE_50_PERCENT and start_frame <= i < end_frame:
                     # Add a green border to frames in the middle 50%
                     border_size = 3
                     frame_rgb[:border_size, :, :] = [0, 255, 0]  # Top border
@@ -136,7 +136,7 @@ def predict_video(video_path, visualize=False, middle_only=True):
         "frames": frames,
         "all_frames": all_frames if visualize else None,
         "sampled_indices": indices,  # Store which frames were used for prediction
-        "middle_range": (start_frame, end_frame) if middle_only else (0, frame_count)
+        "middle_range": (start_frame, end_frame) if USE_MIDDLE_50_PERCENT else (0, frame_count)
     }
     
     return result
@@ -150,7 +150,7 @@ def visualize_prediction(result, true_class, video_path):
         return
     
     # Create figure with 2 rows
-    fig = plt.figure(figsize=(12, 10))
+    fig = plt.figure(figsize=(15, 12))
     
     # Plot the probabilities as a bar chart
     ax1 = fig.add_subplot(2, 1, 1)
@@ -174,7 +174,7 @@ def visualize_prediction(result, true_class, video_path):
     
     ax1.set_ylim(0, 1)
     ax1.set_ylabel('Probability')
-    ax1.set_title(f'Class Probabilities - True: {true_class}, Predicted: {result["predicted_class"]}')
+    ax1.set_title(f'Class Probabilities - True: {true_class}, Predicted: {result["predicted_class"]} ({result["confidence"]:.4f})')
     plt.xticks(rotation=45, ha='right')
     
     # Plot the sampled frames
@@ -197,10 +197,10 @@ def visualize_prediction(result, true_class, video_path):
     # Show which frames were used
     start_frame, end_frame = result["middle_range"]
     frame_indices = result["sampled_indices"]
-    ax2.set_title(f'Sampled Frames from {os.path.basename(video_path)}\nUsed frames {start_frame}-{end_frame} (indices: {frame_indices})')
+    ax2.set_title(f'Sampled {NUM_FRAMES} Frames from {os.path.basename(video_path)}\nUsing middle 50% (frames {start_frame}-{end_frame})\nIndices: {frame_indices}')
     
     plt.tight_layout()
-    plt.savefig(f"{os.path.splitext(os.path.basename(video_path))[0]}_prediction.png")
+    plt.savefig(f"{os.path.splitext(os.path.basename(video_path))[0]}_middle50_prediction.png")
     plt.show()
 
 def create_video_with_prediction(result, true_class, video_path):
@@ -217,7 +217,7 @@ def create_video_with_prediction(result, true_class, video_path):
     start_frame, end_frame = result["middle_range"]
     
     # Create output video
-    output_path = f"{os.path.splitext(os.path.basename(video_path))[0]}_annotated.mp4"
+    output_path = f"{os.path.splitext(os.path.basename(video_path))[0]}_middle50_annotated.mp4"
     
     # Get video dimensions
     height, width = all_frames[0].shape[:2]
@@ -254,6 +254,10 @@ def create_video_with_prediction(result, true_class, video_path):
         cv2.putText(frame_bgr, f"Frame {i}/{len(all_frames)} - {frame_status}", 
                    (width - 250, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2)
         
+        # Add info about using 8 frames and middle 50%
+        cv2.putText(frame_bgr, f"Model: 8 frames, middle 50%", 
+                   (width - 250, height - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        
         out.write(frame_bgr)
     
     out.release()
@@ -261,7 +265,7 @@ def create_video_with_prediction(result, true_class, video_path):
     return output_path
 
 def main():
-    print("Testing the fine-tuned TimeSformer model for badminton shot classification")
+    print("Testing the model trained with 8 frames from the middle 50% of videos")
     print("Available classes:", class_labels)
     
     # Test on one video from each class
@@ -276,7 +280,7 @@ def main():
             
             print(f"\nTesting video: {video_path}")
             # Use middle_only=True to only consider the middle 50% of frames
-            result = predict_video(video_path, visualize=True, middle_only=True)
+            result = predict_video(video_path, visualize=True)
             
             if result:
                 print(f"True class: {class_name}")
