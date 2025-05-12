@@ -1,3 +1,4 @@
 badminton_dataset/
 finetuned_timesformer/
 finetuned_timesformer_middle50/*.mp4
+*.mp4
